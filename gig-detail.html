@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Gig — Feelink</title><link rel="stylesheet" href="css/styles.css"/></head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a></header>
+  <main class="container">
+    <a href="gigs.html" class="small muted">← back to gigs</a>
+    <div id="gigCard" class="card">Loading...</div>
+  </main>
+
+  <script type="module">
+    import { auth, db } from './js/firebase-config.js';
+    import { doc, getDoc, addDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-auth.js';
+
+    const params = new URLSearchParams(location.search); const id = params.get('id');
+
+    async function load(){
+      const snap = await getDoc(doc(db,'gigs', id));
+      if (!snap.exists()) return document.getElementById('gigCard').innerText = 'Not found';
+      const g = snap.data();
+      document.getElementById('gigCard').innerHTML = `<h2>${escapeHtml(g.title)}</h2><div class="muted">Category: ${escapeHtml(g.category)} • Price: ₹${g.price}</div><p>${escapeHtml(g.description)}</p><div style="margin-top:12px"><button id="msgBtn" class="btn">Message seller</button> <button id="orderBtn" class="btn primary">Order (manual)</button></div>`;
+      document.getElementById('msgBtn').onclick = ()=> location.href = '/messages.html?to=' + encodeURIComponent(g.ownerId || '');
+      document.getElementById('orderBtn').onclick = async ()=> {
+        if(!auth.currentUser) return location.href = '/auth.html';
+        await addDoc(collection(db,'orders'), { gigId: id, clientId: auth.currentUser.uid, freelancerId: g.ownerId||null, amount: g.price, platformFee: Math.round(g.price*0.15), freelancerAmount: Math.round(g.price*0.85), status:'pending', createdAt: serverTimestamp() });
+        alert('Order created (pending). Follow manual payment instructions in your dashboard.');
+        location.href = '/dashboard.html';
+      };
+    }
+
+    function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    load();
+  </script>
+</body>
+</html>
