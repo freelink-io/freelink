@@ -1,1 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Feelink — Connect. Create. Earn.</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.json" />
+</head>
+<body>
+  <header class="topbar container">
+    <a class="logo" href="/">Feelink</a>
+    <nav>
+      <a href="gigs.html">Browse</a>
+      <a href="auth.html">Login / Sign up</a>
+      <a href="dashboard.html" id="dashLink">Dashboard</a>
+    </nav>
+  </header>
 
+  <main class="container">
+    <section class="card hero">
+      <div class="hero-left">
+        <h1>Feelink — Connect. Create. Earn.</h1>
+        <p class="muted">One platform for clients + freelancers. Direct messaging from day one. 15% commission.</p>
+        <div style="margin-top:14px">
+          <a class="btn" href="auth.html">Get Started</a>
+          <a class="btn ghost" href="gigs.html">Browse Gigs</a>
+        </div>
+      </div>
+      <div class="hero-right">
+        <canvas id="hero3d" class="hero-canvas"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Popular categories</h3>
+      <div id="categoryList" class="grid-3"></div>
+    </section>
+
+    <section class="card">
+      <h3>Latest gigs</h3>
+      <div id="latestGigs" class="grid-3"></div>
+    </section>
+  </main>
+
+  <footer class="container muted center">© Feelink — 2025</footer>
+
+  <script type="module">
+    import { db, seedDefaults } from './js/firebase-config.js';
+    import { collection, query, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+
+    // ensure categories exist
+    seedDefaults().catch(console.error);
+
+    async function loadCategories(){
+      const snap = await getDocs(query(collection(db,'categories')));
+      const el = document.getElementById('categoryList');
+      el.innerHTML = '';
+      snap.forEach(d => el.innerHTML += `<a class="mini-gig card" href="gigs.html?cat=${encodeURIComponent(d.data().name)}">${d.data().name}</a>`);
+    }
+
+    async function loadLatest(){
+      const snap = await getDocs(query(collection(db,'gigs'), orderBy('createdAt','desc'), limit(6)));
+      const el = document.getElementById('latestGigs');
+      el.innerHTML = '';
+      if (snap.empty) el.innerHTML = '<div class="muted">No gigs yet</div>';
+      snap.forEach(d => {
+        const g = d.data();
+        el.innerHTML += `<a class="mini-gig card" href="gig-detail.html?id=${d.id}"><strong>${escapeHtml(g.title||'Untitled')}</strong><div class="muted">₹${g.price||0}</div><p class="small">${escapeHtml((g.description||'').slice(0,80))}...</p></a>`;
+      });
+    }
+
+    function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    loadCategories(); loadLatest();
+
+    // PWA - service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(()=>{});
+    }
+
+    // lightweight hero animation (canvas circles)
+    const canvas = document.getElementById('hero3d');
+    const ctx = canvas.getContext('2d');
+    function resize(){ canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; }
+    window.addEventListener('resize', resize); resize();
+    const nodes = Array.from({length:28}, ()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height, vx:(Math.random()-0.5)*0.4, vy:(Math.random()-0.5)*0.4, r:6+Math.random()*10}));
+    function anim(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      for(const n of nodes){
+        n.x += n.vx; n.y += n.vy;
+        if(n.x<0||n.x>canvas.width) n.vx*=-1;
+        if(n.y<0||n.y>canvas.height) n.vy*=-1;
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(11,97,214,0.9)';
+        ctx.arc(n.x,n.y,n.r,0,Math.PI*2); ctx.fill();
+      }
+      requestAnimationFrame(anim);
+    }
+    anim();
+  </script>
+</body>
+</html>
