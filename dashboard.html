@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Dashboard — Feelink</title><link rel="stylesheet" href="css/styles.css"/></head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a><nav><a href="gigs.html">Browse</a><a href="create-gig.html">Create gig</a><a href="messages.html">Messages</a><a id="logout" href="#">Logout</a></nav></header>
+  <main class="container">
+    <section id="profileCard" class="card">Loading profile...</section>
+    <section id="mainArea" class="card">Loading dashboard...</section>
+  </main>
+
+  <script type="module">
+    import { auth, db } from './js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-auth.js';
+    import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) return location.href = '/auth.html';
+      const udoc = await getDoc(doc(db,'users',user.uid));
+      const data = udoc.exists() ? udoc.data() : {};
+      document.getElementById('profileCard').innerHTML = `<h2>${data.name||'User'}</h2><p class="small muted">${data.headline||data.role||''}</p><div class="muted">Wallet: ₹${data.walletBalance||0}</div>`;
+      renderDashboardForRole(user.uid, data.role || 'client');
+    });
+
+    async function renderDashboardForRole(uid, role){
+      const main = document.getElementById('mainArea'); main.innerHTML = '';
+      if (role === 'freelancer' || role === 'both'){
+        // Show freelancer view: gigs, orders to deliver, messages
+        const gigsQ = query(collection(db,'gigs'), where('ownerId','==', uid), orderBy('createdAt','desc'));
+        const gigsSnap = await getDocs(gigsQ);
+        let html = '<h3>Your gigs</h3><div class="grid-3">';
+        gigsSnap.forEach(d => { const g = d.data(); html += `<a class="mini-gig card" href="gig-detail.html?id=${d.id}"><strong>${g.title}</strong><div class="muted">₹${g.price}</div></a>`; });
+        html += '</div>';
+        // Orders assigned to you
+        const ordersQ = query(collection(db,'orders'), where('freelancerId','==', uid), orderBy('createdAt','desc'));
+        const ordersSnap = await getDocs(ordersQ);
+        html += '<h3 style="margin-top:12px">Orders</h3>';
+        ordersSnap.forEach(o=> { html += `<div class="row"><div style="flex:1">Order ${o.id} — Gig ${o.data().gigId}</div><div class="muted">${o.data().status}</div></div>`; });
+        main.innerHTML = html;
+      } else {
+        // Client view: posted orders + search freelancers
+        const ordersQ = query(collection(db,'orders'), where('clientId','==', uid), orderBy('createdAt','desc'));
+        const ordersSnap = await getDocs(ordersQ);
+        let html = '<h3>Your orders</h3>';
+        ordersSnap.forEach(o => { html += `<div class="row"><div style="flex:1">Order ${o.id} — Gig ${o.data().gigId}</div><div class="muted">${o.data().status}</div></div>`; });
+        html += '<h3 style="margin-top:12px">Quick actions</h3><div class="row"><a class="btn" href="gigs.html">Browse gigs</a><a class="btn ghost" href="post-job.html">Post a job</a></div>';
+        main.innerHTML = html;
+      }
+    }
+
+    document.getElementById('logout').onclick = (e)=>{ e.preventDefault(); signOut(auth).then(()=>location.href='/'); };
+  </script>
+</body>
+</html>
