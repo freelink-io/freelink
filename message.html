@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Messages — Feelink</title><link rel="stylesheet" href="css/styles.css"/></head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a></header>
+  <main class="container">
+    <div class="card row">
+      <div style="width:320px"><div id="threads"></div></div>
+      <div style="flex:1"><div id="chatBox">Select a thread</div></div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { auth, db } from './js/firebase-config.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-auth.js';
+    import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+
+    let me = null;
+    onAuthStateChanged(auth, u => { if (!u) return location.href = '/auth.html'; me = u; loadThreads(); });
+
+    function loadThreads(){
+      const q = query(collection(db,'threads'), where('participants','array-contains', me.uid));
+      onSnapshot(q, snap => {
+        const el = document.getElementById('threads'); el.innerHTML = '';
+        snap.forEach(d => {
+          const t = d.data();
+          const btn = document.createElement('div'); btn.className = 'thread'; btn.textContent = t.title || 'Chat';
+          btn.onclick = ()=> openThread(d.id, t);
+          el.appendChild(btn);
+        });
+      });
+    }
+
+    function openThread(threadId, threadMeta){
+      const chatBox = document.getElementById('chatBox');
+      chatBox.innerHTML = `<div id="msgs" class="chat-history"></div><div class="row"><input id="msgInp" class="input" placeholder="Type a message..."><button id="sendBtn" class="btn">Send</button></div>`;
+      const msgsCol = collection(db, `threads/${threadId}/messages`);
+      const msgsQ = query(msgsCol, orderBy('createdAt'));
+      onSnapshot(msgsQ, snap => {
+        const mEl = document.getElementById('msgs'); mEl.innerHTML = '';
+        snap.forEach(md => { const m = md.data(); const div = document.createElement('div'); div.className = m.from === me.uid ? 'bubble me' : 'bubble'; div.textContent = m.text; mEl.appendChild(div); });
+        mEl.scrollTop = mEl.scrollHeight;
+      });
+      document.getElementById('sendBtn').onclick = async () => {
+        const txt = document.getElementById('msgInp').value.trim(); if (!txt) return;
+        await addDoc(msgsCol, { from: me.uid, text: txt, createdAt: serverTimestamp() });
+        document.getElementById('msgInp').value = '';
+      };
+    }
+
+    // helper to create a thread (exposed so other pages can call window.createThread)
+    window.createThread = async (withUid, title='Chat') => {
+      const docRef = await addDoc(collection(db,'threads'), { participants: [me.uid, withUid], title, createdAt: serverTimestamp() });
+      return docRef.id;
+    };
+  </script>
+</body>
+</html>
