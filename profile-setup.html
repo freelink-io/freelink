@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Profile Setup — Feelink</title><link rel="stylesheet" href="css/styles.css"/></head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a></header>
+  <main class="container">
+    <div class="card">
+      <h3>Complete your profile</h3>
+      <input id="headline" class="input" placeholder="Short headline (e.g., I build landing pages)">
+      <textarea id="bio" class="input" placeholder="Short bio"></textarea>
+      <input id="skills" class="input" placeholder="Skills (comma separated)">
+      <label>Avatar</label>
+      <input id="avatar" type="file" class="input">
+      <button id="saveBtn" class="btn">Save profile</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { auth, db, storage } from './js/firebase-config.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-auth.js';
+    import { setDoc, doc, getDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+    import { ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-storage.js';
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) return location.href = '/auth.html';
+      const udoc = await getDoc(doc(db,'users', user.uid));
+      if (udoc.exists() && udoc.data().profileCompleted) return location.href = '/dashboard.html';
+    });
+
+    document.getElementById('saveBtn').onclick = async () => {
+      const user = auth.currentUser; if (!user) return alert('Login first');
+      const headline = document.getElementById('headline').value.trim();
+      const bio = document.getElementById('bio').value.trim();
+      const skills = (document.getElementById('skills').value || '').split(',').map(s=>s.trim()).filter(Boolean);
+      const avatar = document.getElementById('avatar').files[0];
+      const data = { headline, bio, skills, profileCompleted: true, updatedAt: serverTimestamp() };
+      try{
+        if (avatar){
+          const r = ref(storage, `avatars/${user.uid}_${Date.now()}_${avatar.name}`);
+          await uploadBytes(r, avatar);
+          data.avatarUrl = await getDownloadURL(r);
+        }
+        await setDoc(doc(db,'users', user.uid), data, { merge:true });
+        alert('Profile saved'); location.href = '/dashboard.html';
+      }catch(e){ alert(e.message) }
+    };
+  </script>
+</body>
+</html>
