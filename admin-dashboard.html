@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Admin — Feelink</title><link rel="stylesheet" href="css/styles.css"/></head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a></header>
+  <main class="container">
+    <div class="card">
+      <h3>Admin — Quick tools</h3>
+      <div class="row" style="margin-bottom:12px">
+        <button id="listUsers" class="btn">List Users</button>
+        <button id="listOrders" class="btn ghost">List Orders</button>
+      </div>
+      <div id="out"></div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { db } from './js/firebase-config.js';
+    import { collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+
+    document.getElementById('listUsers').onclick = async () => {
+      const snap = await getDocs(query(collection(db,'users'), orderBy('joinedAt','desc')));
+      const o = document.getElementById('out'); o.innerHTML = '<h4>Users</h4>';
+      snap.forEach(d => o.innerHTML += `<div class="card small">${d.id} — ${d.data().name||''} — ${d.data().role||''}</div>`);
+    };
+    document.getElementById('listOrders').onclick = async () => {
+      const snap = await getDocs(query(collection(db,'orders'), orderBy('createdAt','desc')));
+      const o = document.getElementById('out'); o.innerHTML = '<h4>Orders</h4>';
+      snap.forEach(d => o.innerHTML += `<div class="card small">Order ${d.id} — ${d.data().status} — ₹${d.data().amount||0}</div>`);
+    };
+  </script>
+</body>
+</html>
