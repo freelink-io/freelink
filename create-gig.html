@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Create Gig — Feelink</title><link rel="stylesheet" href="css/styles.css"/></head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a></header>
+  <main class="container">
+    <div class="card">
+      <h3>Create a Gig</h3>
+      <input id="title" class="input" placeholder="Title">
+      <textarea id="desc" class="input" placeholder="Description"></textarea>
+      <input id="price" class="input" placeholder="Price (INR)" type="number">
+      <select id="category" class="input"><option>Web Development</option><option>Graphic Design</option><option>Content Writing</option><option>Digital Marketing</option></select>
+      <input id="files" type="file" multiple class="input">
+      <button id="create" class="btn">Create gig</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { auth, db, storage, seedDefaults } from './js/firebase-config.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-auth.js';
+    import { addDoc, collection, serverTimestamp, getDocs, query } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+    import { ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-storage.js';
+
+    // seed categories (if missing)
+    seedDefaults().catch(console.error);
+
+    onAuthStateChanged(auth, user => { if (!user) location.href = '/auth.html'; });
+
+    document.getElementById('create').onclick = async () => {
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      const title = document.getElementById('title').value.trim();
+      const desc = document.getElementById('desc').value.trim();
+      const price = Number(document.getElementById('price').value) || 0;
+      const category = document.getElementById('category').value;
+      if (!title || !desc || !price) return alert('Fill required fields');
+
+      try{
+        const docRef = await addDoc(collection(db,'gigs'), { title, description: desc, price, category, ownerId: user.uid, createdAt: serverTimestamp(), status:'active' });
+        const files = document.getElementById('files').files;
+        const urls = [];
+        for(const f of files){
+          const r = ref(storage, `gigs/${docRef.id}/${Date.now()}_${f.name}`);
+          await uploadBytes(r, f);
+          urls.push(await getDownloadURL(r));
+        }
+        if (urls.length) {
+          // attach images in a meta doc (simple approach)
+          await addDoc(collection(db,'gigsMeta'), { gigId: docRef.id, images: urls }).catch(()=>{});
+        }
+        alert('Gig created'); location.href = '/dashboard.html';
+      }catch(e){ alert(e.message) }
+    };
+  </script>
+</body>
+</html>
