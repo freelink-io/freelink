@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Auth — Feelink</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a></header>
+  <main class="container">
+    <div class="card row">
+      <div style="flex:1">
+        <h3>Create account</h3>
+        <input id="su_name" class="input" placeholder="Full name">
+        <input id="su_email" class="input" placeholder="Email">
+        <input id="su_pass" type="password" class="input" placeholder="Password">
+        <label class="small">Role</label>
+        <select id="su_role" class="input"><option value="client">Client</option><option value="freelancer">Freelancer</option><option value="both">Both</option></select>
+        <button id="btnSignup" class="btn">Sign up</button>
+      </div>
+
+      <div style="width:1px;background:#eef4ff"></div>
+
+      <div style="flex:1">
+        <h3>Login</h3>
+        <input id="li_email" class="input" placeholder="Email">
+        <input id="li_pass" type="password" class="input" placeholder="Password">
+        <button id="btnLogin" class="btn">Login</button>
+        <p class="small muted">After login you'll go to your dashboard.</p>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { auth, db, seedDefaults } from './js/firebase-config.js';
+    import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-auth.js';
+    import { doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+
+    // ensure categories exist
+    seedDefaults().catch(console.error);
+
+    document.getElementById('btnSignup').onclick = async () => {
+      const name = document.getElementById('su_name').value.trim();
+      const email = document.getElementById('su_email').value.trim();
+      const pw = document.getElementById('su_pass').value;
+      const role = document.getElementById('su_role').value;
+      if (!name || !email || !pw) return alert('Fill fields');
+      try{
+        const cred = await createUserWithEmailAndPassword(auth, email, pw);
+        await setDoc(doc(db, 'users', cred.user.uid), { name, email, role, profileCompleted:false, joinedAt: serverTimestamp(), walletBalance: 0 });
+        alert('Account created. Continue to profile setup.');
+        location.href = '/profile-setup.html';
+      }catch(e){ alert(e.message) }
+    };
+
+    document.getElementById('btnLogin').onclick = async () => {
+      const email = document.getElementById('li_email').value.trim();
+      const pw = document.getElementById('li_pass').value;
+      try { await signInWithEmailAndPassword(auth, email, pw); location.href = '/dashboard.html'; } catch(e){ alert(e.message) }
+    };
+  </script>
+</body>
+</html>
