@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Browse Gigs — Feelink</title><link rel="stylesheet" href="css/styles.css"/></head>
+<body>
+  <header class="topbar container"><a class="logo" href="/">Feelink</a></header>
+  <main class="container">
+    <div class="card row">
+      <select id="cat" class="input"><option value="">All categories</option></select>
+      <input id="q" class="input" placeholder="Search gigs...">
+      <button id="search" class="btn">Search</button>
+    </div>
+    <section id="results" class="grid-3"></section>
+  </main>
+
+  <script type="module">
+    import { db, seedDefaults } from './js/firebase-config.js';
+    import { collection, getDocs, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore.js';
+
+    seedDefaults().catch(console.error);
+
+    async function loadCats(){
+      const snap = await getDocs(query(collection(db,'categories')));
+      const sel = document.getElementById('cat');
+      snap.forEach(d => sel.innerHTML += `<option>${d.data().name}</option>`);
+    }
+    async function load(){
+      const cat = document.getElementById('cat').value;
+      let q;
+      if (cat) q = query(collection(db,'gigs'), where('category','==',cat), orderBy('createdAt','desc'));
+      else q = query(collection(db,'gigs'), orderBy('createdAt','desc'));
+      const snap = await getDocs(q);
+      const el = document.getElementById('results'); el.innerHTML = '';
+      const qText = (document.getElementById('q').value || '').trim().toLowerCase();
+      snap.forEach(d => {
+        const g = d.data();
+        if (qText && !(g.title||'').toLowerCase().includes(qText)) return;
+        el.innerHTML += `<a class="mini-gig card" href="gig-detail.html?id=${d.id}"><strong>${escapeHtml(g.title)}</strong><div class="muted">₹${g.price}</div><p class="small">${escapeHtml((g.description||'').slice(0,80))}...</p></a>`;
+      });
+    }
+    function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    loadCats(); load();
+    document.getElementById('search').onclick = load;
+  </script>
+</body>
+</html>
